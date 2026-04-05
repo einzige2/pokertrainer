@@ -1,7 +1,7 @@
 ---
 title: Pre-Flop SMS Quiz Trainer
 type: feat
-status: active
+status: completed
 date: 2026-04-05
 ---
 
