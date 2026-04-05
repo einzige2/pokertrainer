@@ -1,11 +1,11 @@
-import { Database } from "bun:sqlite";
-import type { Scenario } from "../data/ranges/types";
+import * as sqlite from "bun:sqlite";
+import type * as rangeTypes from "@/data/ranges/types";
 
 export type QuizHistoryRow = {
   id: number;
   user_id: number;
   position: string;
-  scenario: Scenario;
+  scenario: rangeTypes.Scenario;
   opener_position: string | null;
   hand: string;
   correct_action: string;
@@ -19,10 +19,10 @@ export type QuizHistoryRow = {
  * Inserts a new quiz question row for a user.
  */
 export const insertQuizRow = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   position: string;
-  scenario: Scenario;
+  scenario: rangeTypes.Scenario;
   openerPosition: string | null;
   hand: string;
   correctAction: string;
@@ -45,10 +45,10 @@ export const insertQuizRow = (args: {
 
 /**
  * Returns the oldest unanswered quiz row for a user sent today (FIFO).
- * "Today" is the ISO date string for midnight in the app's timezone.
+ * "Today" is the SQLite-compatible datetime string for midnight UTC.
  */
 export const getOldestUnanswered = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   todayMidnight: string;
 }): QuizHistoryRow | undefined => {
@@ -71,7 +71,7 @@ export const getOldestUnanswered = (args: {
  * Records a user's answer to a quiz question.
  */
 export const recordAnswer = (args: {
-  db: Database;
+  db: sqlite.Database;
   rowId: number;
   userAnswer: string;
   isCorrect: boolean;
@@ -90,7 +90,7 @@ export const recordAnswer = (args: {
  * Called at batch-send time to keep history clean.
  */
 export const ageOutOldQuestions = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   todayMidnight: string;
 }): void => {
@@ -110,14 +110,14 @@ export const ageOutOldQuestions = (args: {
  * Used to deduplicate questions within a single day's batch.
  */
 export const getTodaysSentCombos = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   todayMidnight: string;
-}): Array<{ position: string; scenario: Scenario; hand: string }> => {
+}): Array<{ position: string; scenario: rangeTypes.Scenario; hand: string }> => {
   const { db, userId, todayMidnight } = args;
   return db
     .query<
-      { position: string; scenario: Scenario; hand: string },
+      { position: string; scenario: rangeTypes.Scenario; hand: string },
       { $user_id: number; $midnight: string }
     >(
       `SELECT position, scenario, hand FROM quiz_history

@@ -1,16 +1,10 @@
-import { Database } from "bun:sqlite";
-import {
-  setUserSendTime,
-  enrollUser,
-  updateUserStatus,
-} from "../db/users";
-import type { User } from "../db/users";
+import * as sqlite from "bun:sqlite";
+import * as users from "@/db/users";
 
 /** Validates a time string in HH:MM 24h format. */
 const parseTime = (input: string): string | null => {
   const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(input.trim());
   if (match == null) return null;
-  // Normalize to zero-padded HH:MM
   const hh = match[1]!.padStart(2, "0");
   const mm = match[2]!.padStart(2, "0");
   return `${hh}:${mm}`;
@@ -29,9 +23,9 @@ const parseCount = (input: string): number | null => {
  * Returns the reply message to send back to the user.
  */
 export const handleOnboarding = (args: {
-  user: User;
+  user: users.User;
   text: string;
-  db: Database;
+  db: sqlite.Database;
 }): string => {
   const { user, text, db } = args;
 
@@ -43,7 +37,7 @@ export const handleOnboarding = (args: {
         "Reply with HH:MM (24h), e.g. 09:00 or 20:30"
       );
     }
-    setUserSendTime({ db, userId: user.id, sendTime: time });
+    users.setUserSendTime({ db, userId: user.id, sendTime: time });
     return "How many questions per day? Reply with a number from 1 to 20.";
   }
 
@@ -52,15 +46,15 @@ export const handleOnboarding = (args: {
     if (count == null) {
       return "How many questions per day? Reply with a number from 1 to 20.";
     }
-    enrollUser({ db, userId: user.id, dailyCount: count });
+    users.enrollUser({ db, userId: user.id, dailyCount: count });
     return (
       `You're enrolled! I'll send ${count} questions at ${user.send_time ?? "your chosen time"} each day.\n` +
       "Text STOP to unenroll, START to re-configure."
     );
   }
 
-  // Should not reach here — caller should only call this for onboarding statuses
-  updateUserStatus({ db, userId: user.id, status: "onboarding_time" });
+  // Should not reach here — caller should only invoke this for onboarding statuses
+  users.updateUserStatus({ db, userId: user.id, status: "onboarding_time" });
   return (
     "Welcome to PokerTrainer! What time should I send your daily quizzes?\n" +
     "Reply with HH:MM (24h), e.g. 09:00 or 20:30"

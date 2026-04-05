@@ -1,7 +1,7 @@
-import type { Scenario } from "../data/ranges/types";
+import type * as rangeTypes from "@/data/ranges/types";
 
 /** Maps raw reply characters to canonical action strings per scenario. */
-const SCENARIO_CODES: Record<Scenario, Record<string, string>> = {
+const SCENARIO_CODES: Record<rangeTypes.Scenario, Record<string, string>> = {
   rfi:     { O: "open", F: "fold" },
   vs_rfi:  { C: "call", "3": "3bet", F: "fold" },
   vs_3bet: { C: "call", "4": "4bet", F: "fold" },
@@ -18,7 +18,7 @@ type ParseResult =
  */
 export const parseReply = (args: {
   reply: string;
-  scenario: Scenario;
+  scenario: rangeTypes.Scenario;
 }): ParseResult => {
   const { reply, scenario } = args;
   const key = reply.trim().toUpperCase()[0] ?? "";

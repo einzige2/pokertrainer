@@ -1,99 +1,89 @@
-import { describe, it, expect, beforeEach, mock } from "bun:test";
-import { Database } from "bun:sqlite";
-import { runMigrations } from "../db/schema";
-import { createUser, enrollUser, setUserSendTime, findUserByPhone } from "../db/users";
-import { sendBatch } from "./send-batch";
+import * as bunTest from "bun:test";
+import * as sqlite from "bun:sqlite";
+import * as schema from "@/db/schema";
+import * as users from "@/db/users";
+import * as sendBatchModule from "./send-batch";
 
-const makeDb = (): Database => {
-  const db = new Database(":memory:");
+const makeDb = (): sqlite.Database => {
+  const db = new sqlite.Database(":memory:");
   db.run("PRAGMA foreign_keys = ON;");
-  runMigrations(db);
+  schema.runMigrations(db);
   return db;
 };
 
-const makeEnrolledUser = (db: Database, phone: string) => {
-  const user = createUser({ db, phone });
-  setUserSendTime({ db, userId: user.id, sendTime: "09:00" });
-  enrollUser({ db, userId: user.id, dailyCount: 3 });
-  return findUserByPhone({ db, phone })!;
+const makeEnrolledUser = (db: sqlite.Database, phone: string): users.User => {
+  const user = users.createUser({ db, phone });
+  users.setUserSendTime({ db, userId: user.id, sendTime: "09:00" });
+  users.enrollUser({ db, userId: user.id, dailyCount: 3 });
+  return users.findUserByPhone({ db, phone })!;
 };
 
 const today = "2026-04-05";
 
-describe("sendBatch", () => {
-  let db: Database;
+bunTest.describe("sendBatch", () => {
+  let db: sqlite.Database;
 
-  beforeEach(() => {
+  bunTest.beforeEach(() => {
     db = makeDb();
   });
 
-  it("sets last_sent_date before sending", async () => {
+  bunTest.it("sets last_sent_date before sending", async () => {
     const user = makeEnrolledUser(db, "+15550002001");
     const sentMessages: string[] = [];
 
     const twilioClient = {
       messages: {
-        create: mock(async (opts: { body: string }) => {
+        create: bunTest.mock(async (opts: { body: string }) => {
           sentMessages.push(opts.body);
           return { sid: "SM123" };
         }),
       },
     } as never;
 
-    await sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
+    await sendBatchModule.sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
 
-    const updated = findUserByPhone({ db, phone: "+15550002001" })!;
-    expect(updated.last_sent_date).toBe(today);
+    const updated = users.findUserByPhone({ db, phone: "+15550002001" })!;
+    bunTest.expect(updated.last_sent_date).toBe(today);
   });
 
-  it("sends daily_count messages", async () => {
+  bunTest.it("sends daily_count messages", async () => {
     const user = makeEnrolledUser(db, "+15550002002");
     const sentMessages: string[] = [];
 
     const twilioClient = {
       messages: {
-        create: mock(async (opts: { body: string }) => {
+        create: bunTest.mock(async (opts: { body: string }) => {
           sentMessages.push(opts.body);
           return { sid: "SM123" };
         }),
       },
     } as never;
 
-    await sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
-    expect(sentMessages.length).toBe(user.daily_count);
+    await sendBatchModule.sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
+    bunTest.expect(sentMessages.length).toBe(user.daily_count);
   });
 
-  it("does not send duplicate questions when called twice with same today", async () => {
+  bunTest.it("sets last_sent_date as double-send guard", async () => {
     const user = makeEnrolledUser(db, "+15550002003");
-    const sentMessages: string[] = [];
 
     const twilioClient = {
       messages: {
-        create: mock(async (opts: { body: string }) => {
-          sentMessages.push(opts.body);
-          return { sid: "SM123" };
-        }),
+        create: bunTest.mock(async () => ({ sid: "SM123" })),
       },
     } as never;
 
-    await sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
-    const countAfterFirst = sentMessages.length;
+    await sendBatchModule.sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
 
-    // Second call with same today — last_sent_date guard would block this at scheduler level,
-    // but even if sendBatch is called directly, it should not resend (dedup via quiz_history)
-    // Note: last_sent_date is already set so getUsersDueAt won't return this user again.
-    // This test verifies last_sent_date is set correctly.
-    const updated = findUserByPhone({ db, phone: "+15550002003" })!;
-    expect(updated.last_sent_date).toBe(today);
-    expect(countAfterFirst).toBe(user.daily_count);
+    const updated = users.findUserByPhone({ db, phone: "+15550002003" })!;
+    bunTest.expect(updated.last_sent_date).toBe(today);
   });
 
-  it("pauses user when Twilio returns 21610", async () => {
+  bunTest.it("pauses user when Twilio returns 21610", async () => {
     const user = makeEnrolledUser(db, "+15550002004");
 
     const twilioClient = {
       messages: {
-        create: mock(async () => {
+        create: bunTest.mock(async () => {
           const err = new Error("Unsubscribed") as Error & { code: number };
           err.code = 21610;
           throw err;
@@ -101,9 +91,9 @@ describe("sendBatch", () => {
       },
     } as never;
 
-    await sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
+    await sendBatchModule.sendBatch({ db, user, today, twilioClient, twilioPhoneNumber: "+15559999999" });
 
-    const updated = findUserByPhone({ db, phone: "+15550002004" })!;
-    expect(updated.status).toBe("paused");
+    const updated = users.findUserByPhone({ db, phone: "+15550002004" })!;
+    bunTest.expect(updated.status).toBe("paused");
   });
 });

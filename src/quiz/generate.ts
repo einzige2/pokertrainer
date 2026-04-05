@@ -1,19 +1,18 @@
-import { Database } from "bun:sqlite";
-import { getTodaysSentCombos } from "../db/quiz-history";
-import { getRfiAction, getVsRfiAction, getVs3betAction } from "../data/ranges/index";
-import type { Position, Scenario } from "../data/ranges/types";
-import { rfiData, vsRfiData, vs3betData } from "../data/ranges/index";
+import * as sqlite from "bun:sqlite";
+import * as quizHistory from "@/db/quiz-history";
+import * as ranges from "@/data/ranges/index";
+import type * as rangeTypes from "@/data/ranges/types";
 
 export type QuestionSpec = {
-  position: Position;
-  scenario: Scenario;
-  openerPosition: Position | null;
+  position: rangeTypes.Position;
+  scenario: rangeTypes.Scenario;
+  openerPosition: rangeTypes.Position | null;
   hand: string;
   correctAction: string;
 };
 
 /** All available position keys. */
-const ALL_POSITIONS: Position[] = [
+const ALL_POSITIONS: rangeTypes.Position[] = [
   "UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB",
 ];
 
@@ -31,17 +30,17 @@ const buildAllCombos = (): Array<Omit<QuestionSpec, "correctAction">> => {
   // RFI combos — all positions except BB (no RFI from BB)
   for (const pos of ALL_POSITIONS) {
     if (pos === "BB") continue;
-    const range = rfiData[pos];
+    const range = ranges.rfiData[pos];
     for (const hand of Object.keys(range)) {
       combos.push({ position: pos, scenario: "rfi", openerPosition: null, hand });
     }
   }
 
   // vs-RFI combos — only positions/opener pairs in our dataset
-  for (const heroPos of Object.keys(vsRfiData) as Position[]) {
-    const openerMap = vsRfiData[heroPos];
+  for (const heroPos of Object.keys(ranges.vsRfiData) as rangeTypes.Position[]) {
+    const openerMap = ranges.vsRfiData[heroPos];
     if (openerMap == null) continue;
-    for (const openerPos of Object.keys(openerMap) as Position[]) {
+    for (const openerPos of Object.keys(openerMap) as rangeTypes.Position[]) {
       const range = openerMap[openerPos];
       if (range == null) continue;
       for (const hand of Object.keys(range)) {
@@ -56,10 +55,10 @@ const buildAllCombos = (): Array<Omit<QuestionSpec, "correctAction">> => {
   }
 
   // vs-3bet combos — only positions/3bettor pairs in our dataset
-  for (const heroPos of Object.keys(vs3betData) as Position[]) {
-    const threeBettorMap = vs3betData[heroPos];
+  for (const heroPos of Object.keys(ranges.vs3betData) as rangeTypes.Position[]) {
+    const threeBettorMap = ranges.vs3betData[heroPos];
     if (threeBettorMap == null) continue;
-    for (const threeBettorPos of Object.keys(threeBettorMap) as Position[]) {
+    for (const threeBettorPos of Object.keys(threeBettorMap) as rangeTypes.Position[]) {
       const range = threeBettorMap[threeBettorPos];
       if (range == null) continue;
       for (const hand of Object.keys(range)) {
@@ -84,13 +83,13 @@ const ALL_COMBOS = buildAllCombos();
  * Returns undefined if no unique combos remain (e.g., daily_count exceeds dataset size).
  */
 export const generateQuestion = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   todayMidnight: string;
 }): QuestionSpec | undefined => {
   const { db, userId, todayMidnight } = args;
 
-  const alreadySent = getTodaysSentCombos({ db, userId, todayMidnight });
+  const alreadySent = quizHistory.getTodaysSentCombos({ db, userId, todayMidnight });
   const sentSet = new Set(
     alreadySent.map((r) => `${r.position}|${r.scenario}|${r.hand}`)
   );
@@ -117,15 +116,15 @@ const resolveAction = (
   const { position, scenario, openerPosition, hand } = combo;
 
   if (scenario === "rfi") {
-    return getRfiAction({ position, hand });
+    return ranges.getRfiAction({ position, hand });
   }
 
   if (scenario === "vs_rfi") {
     if (openerPosition == null) return undefined;
-    return getVsRfiAction({ heroPosition: position, openerPosition, hand });
+    return ranges.getVsRfiAction({ heroPosition: position, openerPosition, hand });
   }
 
   // vs_3bet
   if (openerPosition == null) return undefined;
-  return getVs3betAction({ heroPosition: position, threeBettorPosition: openerPosition, hand });
+  return ranges.getVs3betAction({ heroPosition: position, threeBettorPosition: openerPosition, hand });
 };

@@ -1,4 +1,4 @@
-import type { RfiData, RfiAction, HandString } from "./types";
+import type * as rangeTypes from "./types";
 
 /**
  * Approximate GTO RFI (Raise First In) ranges for all 9 positions.
@@ -106,15 +106,13 @@ const OPEN_HANDS: Record<string, string[]> = {
  * Builds a full Record<HandString, RfiAction> for one position,
  * defaulting every hand to "fold" unless it appears in OPEN_HANDS.
  */
-const buildPositionRange = (openHands: string[]): Record<HandString, RfiAction> => {
+const buildPositionRange = (openHands: string[]): Record<rangeTypes.HandString, rangeTypes.RfiAction> => {
   const openSet = new Set(openHands);
-  const range: Record<HandString, RfiAction> = {};
+  const range: Record<rangeTypes.HandString, rangeTypes.RfiAction> = {};
 
-  // Pairs
   const ranks = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
   for (const r of ranks) range[`${r}${r}`] = openSet.has(`${r}${r}`) ? "open" : "fold";
 
-  // Suited and offsuit
   for (let i = 0; i < ranks.length; i++) {
     for (let j = i + 1; j < ranks.length; j++) {
       const suited = `${ranks[i]}${ranks[j]}s`;
@@ -127,7 +125,7 @@ const buildPositionRange = (openHands: string[]): Record<HandString, RfiAction> 
   return range;
 };
 
-export const rfiData: RfiData = {
+export const rfiData: rangeTypes.RfiData = {
   UTG:  buildPositionRange(OPEN_HANDS["UTG"]!),
   UTG1: buildPositionRange(OPEN_HANDS["UTG1"]!),
   UTG2: buildPositionRange(OPEN_HANDS["UTG2"]!),

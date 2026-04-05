@@ -1,11 +1,10 @@
-import { Database } from "bun:sqlite";
+import * as sqlite from "bun:sqlite";
 import * as twilio from "twilio";
-import type { User } from "../db/users";
-import { setLastSentDate } from "../db/users";
-import { insertQuizRow, ageOutOldQuestions } from "../db/quiz-history";
-import { generateQuestion } from "../quiz/generate";
-import { formatQuestion } from "../quiz/message";
-import type { Position, Scenario } from "../data/ranges/types";
+import * as users from "@/db/users";
+import * as quizHistory from "@/db/quiz-history";
+import * as generate from "@/quiz/generate";
+import * as message from "@/quiz/message";
+import type * as rangeTypes from "@/data/ranges/types";
 
 /**
  * Sends the daily quiz batch for a single user.
@@ -19,8 +18,8 @@ import type { Position, Scenario } from "../data/ranges/types";
  * If Twilio returns error 21610 (opted-out number), the user is paused in the DB.
  */
 export const sendBatch = async (args: {
-  db: Database;
-  user: User;
+  db: sqlite.Database;
+  user: users.User;
   today: string;
   twilioClient: ReturnType<typeof twilio.default>;
   twilioPhoneNumber: string;
@@ -30,22 +29,22 @@ export const sendBatch = async (args: {
   const todayMidnight = `${today} 00:00:00`;
 
   // Mark as sent before doing any outbound work — prevents double-send on restart
-  setLastSentDate({ db, userId: user.id, date: today });
+  users.setLastSentDate({ db, userId: user.id, date: today });
 
   // Age out stale unanswered questions from previous days
-  ageOutOldQuestions({ db, userId: user.id, todayMidnight });
+  quizHistory.ageOutOldQuestions({ db, userId: user.id, todayMidnight });
 
   // Generate and queue questions
   const questions = [];
   for (let i = 0; i < user.daily_count; i++) {
-    const spec = generateQuestion({ db, userId: user.id, todayMidnight });
+    const spec = generate.generateQuestion({ db, userId: user.id, todayMidnight });
     if (spec == null) {
       console.warn(`[scheduler] No more unique questions for user ${user.id} (sent ${i}/${user.daily_count})`);
       break;
     }
     questions.push(spec);
 
-    insertQuizRow({
+    quizHistory.insertQuizRow({
       db,
       userId: user.id,
       position: spec.position,
@@ -58,10 +57,10 @@ export const sendBatch = async (args: {
 
   // Send each question as an outbound SMS
   for (const spec of questions) {
-    const body = formatQuestion({
-      position: spec.position as Position,
-      scenario: spec.scenario as Scenario,
-      openerPosition: spec.openerPosition as Position | null,
+    const body = message.formatQuestion({
+      position: spec.position as rangeTypes.Position,
+      scenario: spec.scenario as rangeTypes.Scenario,
+      openerPosition: spec.openerPosition as rangeTypes.Position | null,
       hand: spec.hand,
     });
 
@@ -77,8 +76,7 @@ export const sendBatch = async (args: {
       // 21610: message sent to an opted-out number
       if (code === 21610) {
         console.warn(`[scheduler] User ${user.id} has opted out (21610) — pausing`);
-        const { updateUserStatus } = await import("../db/users");
-        updateUserStatus({ db, userId: user.id, status: "paused" });
+        users.updateUserStatus({ db, userId: user.id, status: "paused" });
         return;
       }
 

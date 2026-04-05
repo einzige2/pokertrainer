@@ -1,4 +1,4 @@
-import type { VsRfiData, VsRfiAction, HandString } from "./types";
+import type * as rangeTypes from "./types";
 
 /**
  * Approximate GTO vs-RFI ranges (facing an open raise).
@@ -17,13 +17,13 @@ const ranks = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
 const buildVsRfiRange = (args: {
   threeBetHands: string[];
   callHands: string[];
-}): Record<HandString, VsRfiAction> => {
+}): Record<rangeTypes.HandString, rangeTypes.VsRfiAction> => {
   const { threeBetHands, callHands } = args;
   const threeBetSet = new Set(threeBetHands);
   const callSet = new Set(callHands);
-  const range: Record<HandString, VsRfiAction> = {};
+  const range: Record<rangeTypes.HandString, rangeTypes.VsRfiAction> = {};
 
-  const action = (hand: string): VsRfiAction => {
+  const action = (hand: string): rangeTypes.VsRfiAction => {
     if (threeBetSet.has(hand)) return "3bet";
     if (callSet.has(hand)) return "call";
     return "fold";
@@ -182,7 +182,7 @@ const sbVsCo = buildVsRfiRange({
   ],
 });
 
-export const vsRfiData: VsRfiData = {
+export const vsRfiData: rangeTypes.VsRfiData = {
   BTN: {
     UTG: btnVsUtg,
     CO:  btnVsCo,

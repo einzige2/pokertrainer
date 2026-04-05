@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import * as sqlite from "bun:sqlite";
 
 export type UserStatus =
   | "onboarding_time"
@@ -21,7 +21,7 @@ export type User = {
  * Returns undefined if not found.
  */
 export const findUserByPhone = (args: {
-  db: Database;
+  db: sqlite.Database;
   phone: string;
 }): User | undefined => {
   const { db, phone } = args;
@@ -37,7 +37,7 @@ export const findUserByPhone = (args: {
  * Returns the newly created user.
  */
 export const createUser = (args: {
-  db: Database;
+  db: sqlite.Database;
   phone: string;
 }): User => {
   const { db, phone } = args;
@@ -51,7 +51,7 @@ export const createUser = (args: {
  * Updates the status of a user by their ID.
  */
 export const updateUserStatus = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   status: UserStatus;
 }): void => {
@@ -66,7 +66,7 @@ export const updateUserStatus = (args: {
  * Sets the send_time on a user and advances status to onboarding_count.
  */
 export const setUserSendTime = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   sendTime: string;
 }): void => {
@@ -81,7 +81,7 @@ export const setUserSendTime = (args: {
  * Completes enrollment: sets daily_count and transitions status to active.
  */
 export const enrollUser = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   dailyCount: number;
 }): void => {
@@ -96,7 +96,7 @@ export const enrollUser = (args: {
  * Updates last_sent_date for a user to prevent double-sending on the same calendar day.
  */
 export const setLastSentDate = (args: {
-  db: Database;
+  db: sqlite.Database;
   userId: number;
   date: string;
 }): void => {
@@ -112,7 +112,7 @@ export const setLastSentDate = (args: {
  * already received a batch today (last_sent_date != today).
  */
 export const getUsersDueAt = (args: {
-  db: Database;
+  db: sqlite.Database;
   sendTime: string;
   excludeLastSentDate: string;
 }): User[] => {

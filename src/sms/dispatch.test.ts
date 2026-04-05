@@ -1,164 +1,146 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
-import { runMigrations } from "../db/schema";
-import { handleInbound } from "./dispatch";
-import { findUserByPhone } from "../db/users";
-import { insertQuizRow } from "../db/quiz-history";
+import * as bunTest from "bun:test";
+import * as sqlite from "bun:sqlite";
+import * as schema from "@/db/schema";
+import * as dispatch from "./dispatch";
+import * as users from "@/db/users";
+import * as quizHistory from "@/db/quiz-history";
 
-const makeDb = (): Database => {
-  const db = new Database(":memory:");
+const makeDb = (): sqlite.Database => {
+  const db = new sqlite.Database(":memory:");
   db.run("PRAGMA foreign_keys = ON;");
-  runMigrations(db);
+  schema.runMigrations(db);
   return db;
 };
 
-describe("handleInbound — sign-up flow", () => {
-  let db: Database;
+bunTest.describe("handleInbound — sign-up flow", () => {
+  let db: sqlite.Database;
 
-  beforeEach(() => {
+  bunTest.beforeEach(() => {
     db = makeDb();
   });
 
-  it("creates user and starts onboarding on START", () => {
-    const reply = handleInbound({ db, from: "+15550000001", text: "START" });
-    expect(reply).toContain("What time");
-    const user = findUserByPhone({ db, phone: "+15550000001" });
-    expect(user?.status).toBe("onboarding_time");
+  bunTest.it("creates user and starts onboarding on START", () => {
+    const reply = dispatch.handleInbound({ db, from: "+15550000001", text: "START" });
+    bunTest.expect(reply).toContain("What time");
+    const user = users.findUserByPhone({ db, phone: "+15550000001" });
+    bunTest.expect(user?.status).toBe("onboarding_time");
   });
 
-  it("advances to onboarding_count on valid time", () => {
-    handleInbound({ db, from: "+15550000002", text: "START" });
-    const reply = handleInbound({ db, from: "+15550000002", text: "09:00" });
-    expect(reply).toContain("questions per day");
-    const user = findUserByPhone({ db, phone: "+15550000002" });
-    expect(user?.status).toBe("onboarding_count");
-    expect(user?.send_time).toBe("09:00");
+  bunTest.it("advances to onboarding_count on valid time", () => {
+    dispatch.handleInbound({ db, from: "+15550000002", text: "START" });
+    const reply = dispatch.handleInbound({ db, from: "+15550000002", text: "09:00" });
+    bunTest.expect(reply).toContain("questions per day");
+    const user = users.findUserByPhone({ db, phone: "+15550000002" });
+    bunTest.expect(user?.status).toBe("onboarding_count");
+    bunTest.expect(user?.send_time).toBe("09:00");
   });
 
-  it("re-prompts on invalid time", () => {
-    handleInbound({ db, from: "+15550000003", text: "START" });
-    const reply = handleInbound({ db, from: "+15550000003", text: "9am" });
-    expect(reply).toContain("HH:MM");
-    const user = findUserByPhone({ db, phone: "+15550000003" });
-    expect(user?.status).toBe("onboarding_time");
+  bunTest.it("re-prompts on invalid time", () => {
+    dispatch.handleInbound({ db, from: "+15550000003", text: "START" });
+    const reply = dispatch.handleInbound({ db, from: "+15550000003", text: "9am" });
+    bunTest.expect(reply).toContain("HH:MM");
+    const user = users.findUserByPhone({ db, phone: "+15550000003" });
+    bunTest.expect(user?.status).toBe("onboarding_time");
   });
 
-  it("enrolls user on valid count", () => {
-    handleInbound({ db, from: "+15550000004", text: "START" });
-    handleInbound({ db, from: "+15550000004", text: "09:00" });
-    const reply = handleInbound({ db, from: "+15550000004", text: "5" });
-    expect(reply).toContain("enrolled");
-    const user = findUserByPhone({ db, phone: "+15550000004" });
-    expect(user?.status).toBe("active");
-    expect(user?.daily_count).toBe(5);
+  bunTest.it("enrolls user on valid count", () => {
+    dispatch.handleInbound({ db, from: "+15550000004", text: "START" });
+    dispatch.handleInbound({ db, from: "+15550000004", text: "09:00" });
+    const reply = dispatch.handleInbound({ db, from: "+15550000004", text: "5" });
+    bunTest.expect(reply).toContain("enrolled");
+    const user = users.findUserByPhone({ db, phone: "+15550000004" });
+    bunTest.expect(user?.status).toBe("active");
+    bunTest.expect(user?.daily_count).toBe(5);
   });
 
-  it("re-prompts on count out of range", () => {
-    handleInbound({ db, from: "+15550000005", text: "START" });
-    handleInbound({ db, from: "+15550000005", text: "09:00" });
-    const reply = handleInbound({ db, from: "+15550000005", text: "25" });
-    expect(reply).toContain("1 to 20");
-    const user = findUserByPhone({ db, phone: "+15550000005" });
-    expect(user?.status).toBe("onboarding_count");
+  bunTest.it("re-prompts on count out of range", () => {
+    dispatch.handleInbound({ db, from: "+15550000005", text: "START" });
+    dispatch.handleInbound({ db, from: "+15550000005", text: "09:00" });
+    const reply = dispatch.handleInbound({ db, from: "+15550000005", text: "25" });
+    bunTest.expect(reply).toContain("1 to 20");
+    const user = users.findUserByPhone({ db, phone: "+15550000005" });
+    bunTest.expect(user?.status).toBe("onboarding_count");
   });
 
-  it("pauses active user on STOP", () => {
-    handleInbound({ db, from: "+15550000006", text: "START" });
-    handleInbound({ db, from: "+15550000006", text: "09:00" });
-    handleInbound({ db, from: "+15550000006", text: "5" });
-    handleInbound({ db, from: "+15550000006", text: "STOP" });
-    const user = findUserByPhone({ db, phone: "+15550000006" });
-    expect(user?.status).toBe("paused");
+  bunTest.it("pauses active user on STOP", () => {
+    dispatch.handleInbound({ db, from: "+15550000006", text: "START" });
+    dispatch.handleInbound({ db, from: "+15550000006", text: "09:00" });
+    dispatch.handleInbound({ db, from: "+15550000006", text: "5" });
+    dispatch.handleInbound({ db, from: "+15550000006", text: "STOP" });
+    const user = users.findUserByPhone({ db, phone: "+15550000006" });
+    bunTest.expect(user?.status).toBe("paused");
   });
 
-  it("tells unknown number to START", () => {
-    const reply = handleInbound({ db, from: "+15550000099", text: "hello" });
-    expect(reply).toContain("START");
+  bunTest.it("tells unknown number to START", () => {
+    const reply = dispatch.handleInbound({ db, from: "+15550000099", text: "hello" });
+    bunTest.expect(reply).toContain("START");
   });
 
-  it("tells paused user to START", () => {
-    handleInbound({ db, from: "+15550000007", text: "START" });
-    handleInbound({ db, from: "+15550000007", text: "09:00" });
-    handleInbound({ db, from: "+15550000007", text: "5" });
-    handleInbound({ db, from: "+15550000007", text: "STOP" });
-    const reply = handleInbound({ db, from: "+15550000007", text: "hello" });
-    expect(reply).toContain("START");
+  bunTest.it("tells paused user to START", () => {
+    dispatch.handleInbound({ db, from: "+15550000007", text: "START" });
+    dispatch.handleInbound({ db, from: "+15550000007", text: "09:00" });
+    dispatch.handleInbound({ db, from: "+15550000007", text: "5" });
+    dispatch.handleInbound({ db, from: "+15550000007", text: "STOP" });
+    const reply = dispatch.handleInbound({ db, from: "+15550000007", text: "hello" });
+    bunTest.expect(reply).toContain("START");
   });
 });
 
-describe("handleInbound — answer flow", () => {
-  let db: Database;
+bunTest.describe("handleInbound — answer flow", () => {
+  let db: sqlite.Database;
   const phone = "+15550001000";
 
-  beforeEach(() => {
+  bunTest.beforeEach(() => {
     db = makeDb();
-    // Enroll user
-    handleInbound({ db, from: phone, text: "START" });
-    handleInbound({ db, from: phone, text: "09:00" });
-    handleInbound({ db, from: phone, text: "5" });
+    dispatch.handleInbound({ db, from: phone, text: "START" });
+    dispatch.handleInbound({ db, from: phone, text: "09:00" });
+    dispatch.handleInbound({ db, from: phone, text: "5" });
   });
 
-  it("replies 'no quiz pending' when there are no questions", () => {
-    const reply = handleInbound({ db, from: phone, text: "O" });
-    expect(reply).toContain("No quiz pending");
+  bunTest.it("replies 'no quiz pending' when there are no questions", () => {
+    const reply = dispatch.handleInbound({ db, from: phone, text: "O" });
+    bunTest.expect(reply).toContain("No quiz pending");
   });
 
-  it("scores a correct answer", () => {
-    const user = findUserByPhone({ db, phone })!;
-    insertQuizRow({
-      db,
-      userId: user.id,
-      position: "BTN",
-      scenario: "rfi",
-      openerPosition: null,
-      hand: "AKs",
-      correctAction: "open",
+  bunTest.it("scores a correct answer", () => {
+    const user = users.findUserByPhone({ db, phone })!;
+    quizHistory.insertQuizRow({
+      db, userId: user.id, position: "BTN", scenario: "rfi",
+      openerPosition: null, hand: "AKs", correctAction: "open",
     });
-    const reply = handleInbound({ db, from: phone, text: "O" });
-    expect(reply).toContain("Correct");
+    const reply = dispatch.handleInbound({ db, from: phone, text: "O" });
+    bunTest.expect(reply).toContain("Correct");
   });
 
-  it("scores an incorrect answer", () => {
-    const user = findUserByPhone({ db, phone })!;
-    insertQuizRow({
-      db,
-      userId: user.id,
-      position: "BTN",
-      scenario: "rfi",
-      openerPosition: null,
-      hand: "72o",
-      correctAction: "fold",
+  bunTest.it("scores an incorrect answer", () => {
+    const user = users.findUserByPhone({ db, phone })!;
+    quizHistory.insertQuizRow({
+      db, userId: user.id, position: "BTN", scenario: "rfi",
+      openerPosition: null, hand: "72o", correctAction: "fold",
     });
-    const reply = handleInbound({ db, from: phone, text: "O" });
-    expect(reply).toContain("Incorrect");
+    const reply = dispatch.handleInbound({ db, from: phone, text: "O" });
+    bunTest.expect(reply).toContain("Incorrect");
   });
 
-  it("rejects an invalid reply code", () => {
-    const user = findUserByPhone({ db, phone })!;
-    insertQuizRow({
-      db,
-      userId: user.id,
-      position: "BTN",
-      scenario: "rfi",
-      openerPosition: null,
-      hand: "AKs",
-      correctAction: "open",
+  bunTest.it("rejects an invalid reply code", () => {
+    const user = users.findUserByPhone({ db, phone })!;
+    quizHistory.insertQuizRow({
+      db, userId: user.id, position: "BTN", scenario: "rfi",
+      openerPosition: null, hand: "AKs", correctAction: "open",
     });
-    const reply = handleInbound({ db, from: phone, text: "X" });
-    expect(reply).toContain("Didn't understand");
+    const reply = dispatch.handleInbound({ db, from: phone, text: "X" });
+    bunTest.expect(reply).toContain("Didn't understand");
   });
 
-  it("answers questions FIFO", () => {
-    const user = findUserByPhone({ db, phone })!;
-    insertQuizRow({ db, userId: user.id, position: "BTN", scenario: "rfi", openerPosition: null, hand: "AKs", correctAction: "open" });
-    insertQuizRow({ db, userId: user.id, position: "UTG", scenario: "rfi", openerPosition: null, hand: "72o", correctAction: "fold" });
+  bunTest.it("answers questions FIFO", () => {
+    const user = users.findUserByPhone({ db, phone })!;
+    quizHistory.insertQuizRow({ db, userId: user.id, position: "BTN", scenario: "rfi", openerPosition: null, hand: "AKs", correctAction: "open" });
+    quizHistory.insertQuizRow({ db, userId: user.id, position: "UTG", scenario: "rfi", openerPosition: null, hand: "72o", correctAction: "fold" });
 
-    // First reply should match AKs (oldest)
-    const reply1 = handleInbound({ db, from: phone, text: "O" });
-    expect(reply1).toContain("Correct");
+    const reply1 = dispatch.handleInbound({ db, from: phone, text: "O" });
+    bunTest.expect(reply1).toContain("Correct");
 
-    // Second reply should match 72o
-    const reply2 = handleInbound({ db, from: phone, text: "F" });
-    expect(reply2).toContain("Correct");
+    const reply2 = dispatch.handleInbound({ db, from: phone, text: "F" });
+    bunTest.expect(reply2).toContain("Correct");
   });
 });

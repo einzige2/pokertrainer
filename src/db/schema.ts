@@ -1,10 +1,10 @@
-import { Database } from "bun:sqlite";
+import * as sqlite from "bun:sqlite";
 
 /**
  * Runs all CREATE TABLE IF NOT EXISTS migrations.
  * Safe to call on every startup — idempotent by design.
  */
-export const runMigrations = (db: Database): void => {
+export const runMigrations = (db: sqlite.Database): void => {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,

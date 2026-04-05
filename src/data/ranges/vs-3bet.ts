@@ -1,4 +1,4 @@
-import type { Vs3betData, Vs3betAction, HandString } from "./types";
+import type * as rangeTypes from "./types";
 
 /**
  * Approximate GTO vs-3bet ranges (you opened, facing a 3-bet).
@@ -16,13 +16,13 @@ const ranks = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
 const buildVs3betRange = (args: {
   fourBetHands: string[];
   callHands: string[];
-}): Record<HandString, Vs3betAction> => {
+}): Record<rangeTypes.HandString, rangeTypes.Vs3betAction> => {
   const { fourBetHands, callHands } = args;
   const fourBetSet = new Set(fourBetHands);
   const callSet = new Set(callHands);
-  const range: Record<HandString, Vs3betAction> = {};
+  const range: Record<rangeTypes.HandString, rangeTypes.Vs3betAction> = {};
 
-  const action = (hand: string): Vs3betAction => {
+  const action = (hand: string): rangeTypes.Vs3betAction => {
     if (fourBetSet.has(hand)) return "4bet";
     if (callSet.has(hand)) return "call";
     return "fold";
@@ -110,7 +110,7 @@ const utgVsBb = buildVs3betRange({
   ],
 });
 
-export const vs3betData: Vs3betData = {
+export const vs3betData: rangeTypes.Vs3betData = {
   BTN: {
     BB: btnVsBb,
     SB: btnVsSb,

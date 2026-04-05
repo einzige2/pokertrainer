@@ -1,9 +1,9 @@
-import { randomDisplayHand } from "../data/hands";
-import { getRfiAction } from "../data/ranges/index";
-import type { Position, Scenario } from "../data/ranges/types";
+import * as handsModule from "@/data/hands";
+import * as rangesModule from "@/data/ranges/index";
+import type * as rangeTypes from "@/data/ranges/types";
 
 /** Human-readable labels for positions. */
-const POSITION_LABELS: Record<Position, string> = {
+const POSITION_LABELS: Record<rangeTypes.Position, string> = {
   UTG:  "UTG",
   UTG1: "UTG+1",
   UTG2: "UTG+2",
@@ -23,9 +23,9 @@ const POSITION_LABELS: Record<Position, string> = {
  *   vs_3bet, BTN, BB → "BTN | you opened, BB 3-bet"
  */
 export const formatScenarioLine = (args: {
-  position: Position;
-  scenario: Scenario;
-  openerPosition: Position | null;
+  position: rangeTypes.Position;
+  scenario: rangeTypes.Scenario;
+  openerPosition: rangeTypes.Position | null;
 }): string => {
   const { position, scenario, openerPosition } = args;
   const pos = POSITION_LABELS[position];
@@ -45,7 +45,7 @@ export const formatScenarioLine = (args: {
 };
 
 /** Reply prompts per scenario. */
-const REPLY_PROMPTS: Record<Scenario, string> = {
+const REPLY_PROMPTS: Record<rangeTypes.Scenario, string> = {
   rfi:     "Reply: O (open) / F (fold)",
   vs_rfi:  "Reply: C (call) / 3 (3-bet) / F (fold)",
   vs_3bet: "Reply: C (call) / 4 (4-bet) / F (fold)",
@@ -58,14 +58,14 @@ const REPLY_PROMPTS: Record<Scenario, string> = {
  *    Reply: O (open) / F (fold)"
  */
 export const formatQuestion = (args: {
-  position: Position;
-  scenario: Scenario;
-  openerPosition: Position | null;
+  position: rangeTypes.Position;
+  scenario: rangeTypes.Scenario;
+  openerPosition: rangeTypes.Position | null;
   hand: string;
 }): string => {
   const { position, scenario, openerPosition, hand } = args;
   const scenarioLine = formatScenarioLine({ position, scenario, openerPosition });
-  const displayHand = randomDisplayHand(hand);
+  const displayHand = handsModule.randomDisplayHand(hand);
   const prompt = REPLY_PROMPTS[scenario];
   return `${scenarioLine} | ${displayHand}\n${prompt}`;
 };
@@ -73,14 +73,14 @@ export const formatQuestion = (args: {
 /**
  * Formats the feedback SMS sent after a user answers.
  * For correct answers: "Correct! AKs is an open from BTN."
- * For wrong answers:   "Incorrect. KJo is a fold from UTG. Open range: QQ+, AKs, AKo."
+ * For wrong answers:   "Incorrect. KJo is a fold from UTG. Opens include: AA, KK..."
  */
 export const formatFeedback = (args: {
   isCorrect: boolean;
   hand: string;
   correctAction: string;
-  position: Position;
-  scenario: Scenario;
+  position: rangeTypes.Position;
+  scenario: rangeTypes.Scenario;
 }): string => {
   const { isCorrect, hand, correctAction, position, scenario } = args;
   const pos = POSITION_LABELS[position];
@@ -89,9 +89,8 @@ export const formatFeedback = (args: {
     return `Correct! ${hand} is a ${correctAction} from ${pos}.`;
   }
 
-  // For RFI, include a brief hint about the range boundary
   if (scenario === "rfi") {
-    const hint = buildRfiHint({ position, correctAction });
+    const hint = buildRfiHint({ position });
     return `Incorrect. ${hand} is a ${correctAction} from ${pos}.${hint}`;
   }
 
@@ -100,21 +99,13 @@ export const formatFeedback = (args: {
 
 /**
  * Builds a short range hint for RFI feedback.
- * Lists the top hands in the position's opening range as context.
+ * Lists a sample of hands in the position's opening range as context.
  */
-const buildRfiHint = (args: {
-  position: Position;
-  correctAction: string;
-}): string => {
+const buildRfiHint = (args: { position: rangeTypes.Position }): string => {
   const { position } = args;
-
-  // Show top of the opening range as a quick reference
-  const topHands = [
-    "AA", "KK", "QQ", "JJ", "TT", "AKs", "AQs", "AKo",
-  ].filter((h) => getRfiAction({ position, hand: h }) === "open");
-
+  const topHands = ["AA", "KK", "QQ", "JJ", "TT", "AKs", "AQs", "AKo"].filter(
+    (h) => rangesModule.getRfiAction({ position, hand: h }) === "open"
+  );
   if (topHands.length === 0) return "";
-  const sample = topHands.slice(0, 5).join(", ");
-  return ` Opens include: ${sample}...`;
+  return ` Opens include: ${topHands.slice(0, 5).join(", ")}...`;
 };
-

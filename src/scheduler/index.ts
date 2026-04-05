@@ -1,9 +1,9 @@
-import { Database } from "bun:sqlite";
+import * as sqlite from "bun:sqlite";
 import * as twilio from "twilio";
-import { getUsersDueAt } from "../db/users";
-import { sendBatch } from "./send-batch";
-import { config } from "../config";
-import { getCurrentHHMM, getTodayLocalDateString } from "../db/date-utils";
+import * as users from "@/db/users";
+import * as sendBatchModule from "./send-batch";
+import * as configModule from "@/config";
+import * as dateUtils from "@/db/date-utils";
 
 const TICK_MS = 60_000;
 
@@ -16,28 +16,28 @@ const TICK_MS = 60_000;
  * missed if the process was down during the scheduled window.
  */
 export const startScheduler = (args: {
-  db: Database;
+  db: sqlite.Database;
   twilioClient: ReturnType<typeof twilio.default>;
 }): void => {
   const { db, twilioClient } = args;
 
   const tick = async (): Promise<void> => {
-    const today = getTodayLocalDateString(config.appTimezone);
-    const now = getCurrentHHMM(config.appTimezone);
+    const today = dateUtils.getTodayLocalDateString(configModule.config.appTimezone);
+    const now = dateUtils.getCurrentHHMM(configModule.config.appTimezone);
 
-    const dueUsers = getUsersDueAt({ db, sendTime: now, excludeLastSentDate: today });
+    const dueUsers = users.getUsersDueAt({ db, sendTime: now, excludeLastSentDate: today });
 
     if (dueUsers.length > 0) {
       console.log(`[scheduler] Tick ${now}: ${dueUsers.length} user(s) due`);
     }
 
     for (const user of dueUsers) {
-      await sendBatch({
+      await sendBatchModule.sendBatch({
         db,
         user,
         today,
         twilioClient,
-        twilioPhoneNumber: config.twilio.phoneNumber,
+        twilioPhoneNumber: configModule.config.twilio.phoneNumber,
       });
     }
   };

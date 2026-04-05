@@ -1,45 +1,45 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
-import { runMigrations } from "./schema";
+import * as bunTest from "bun:test";
+import * as sqlite from "bun:sqlite";
+import * as schema from "./schema";
 
-describe("runMigrations", () => {
-  let db: Database;
+bunTest.describe("runMigrations", () => {
+  let db: sqlite.Database;
 
-  beforeEach(() => {
-    db = new Database(":memory:");
+  bunTest.beforeEach(() => {
+    db = new sqlite.Database(":memory:");
     db.run("PRAGMA foreign_keys = ON;");
   });
 
-  it("creates the users table", () => {
-    runMigrations(db);
+  bunTest.it("creates the users table", () => {
+    schema.runMigrations(db);
     const row = db
       .query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
       .get() as { name: string } | null;
-    expect(row?.name).toBe("users");
+    bunTest.expect(row?.name).toBe("users");
   });
 
-  it("creates the quiz_history table", () => {
-    runMigrations(db);
+  bunTest.it("creates the quiz_history table", () => {
+    schema.runMigrations(db);
     const row = db
       .query("SELECT name FROM sqlite_master WHERE type='table' AND name='quiz_history'")
       .get() as { name: string } | null;
-    expect(row?.name).toBe("quiz_history");
+    bunTest.expect(row?.name).toBe("quiz_history");
   });
 
-  it("is idempotent — running twice does not throw", () => {
-    expect(() => {
-      runMigrations(db);
-      runMigrations(db);
+  bunTest.it("is idempotent — running twice does not throw", () => {
+    bunTest.expect(() => {
+      schema.runMigrations(db);
+      schema.runMigrations(db);
     }).not.toThrow();
   });
 
-  it("inserts and retrieves a user after migration", () => {
-    runMigrations(db);
+  bunTest.it("inserts and retrieves a user after migration", () => {
+    schema.runMigrations(db);
     db.run("INSERT INTO users (phone) VALUES (?)", ["+15555550100"]);
     const user = db
       .query("SELECT phone, status FROM users WHERE phone = ?")
       .get("+15555550100") as { phone: string; status: string } | null;
-    expect(user?.phone).toBe("+15555550100");
-    expect(user?.status).toBe("onboarding_time");
+    bunTest.expect(user?.phone).toBe("+15555550100");
+    bunTest.expect(user?.status).toBe("onboarding_time");
   });
 });
