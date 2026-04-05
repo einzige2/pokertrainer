@@ -36,3 +36,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # compounds docs
 docs/brainstorms/
 docs/plans/
+
+# AI
+CLAUDE.md
+.cursor/
