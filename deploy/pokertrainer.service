@@ -1,0 +1,24 @@
+[Unit]
+Description=Poker Trainer SMS Quiz
+After=network.target
+
+[Service]
+Type=simple
+User=pokertrainer
+WorkingDirectory=/opt/pokertrainer
+ExecStart=/home/pokertrainer/.bun/bin/bun run src/index.ts
+Restart=on-failure
+RestartSec=5
+
+# Environment — replace values or use an EnvironmentFile instead
+EnvironmentFile=/opt/pokertrainer/.env
+
+# SQLite lives outside the repo so it survives re-deploys
+Environment=DB_PATH=/var/data/pokertrainer/quiz.sqlite
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pokertrainer
+
+[Install]
+WantedBy=multi-user.target
